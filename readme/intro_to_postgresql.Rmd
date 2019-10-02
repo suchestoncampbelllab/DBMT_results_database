@@ -1,0 +1,1096 @@
+---
+title: "Intro to PostgreSQL"
+author: "Ezgi Karaesmen"
+date: "9/5/2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+# Introduction
+
+Notes from PostgreSQTL tutorial on YouTube.
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/qw--VYLpxG4?start=308" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+Posrtgres is the database engine.
+SQL is Structured Query Language. SQL allows interaction with the database.
+
+# GUI Clients
+
+Some suggestions:
+
+- DataGrip -- requires license
+- Postico -- for Mac users
+- pgAdmin -- for Windows
+
+
+## Installation on  Mac
+
+1. Download postgres app [here](https://postgresapp.com/downloads.html), extract and copy to Applications  
+
+2. Install "Oh My ZSH" with simply :   
+
+```{bash}
+sh -c "$(curl -fsSL https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+```
+
+3. Make `psql` command available by by adding `PATH=$PATH:/Applications/Postgres.app/Contents/Versions/11/bin` to `~/.zshrc`
+
+Note: If having issues with setting zsh as default shell see this [link](http://osxdaily.com/2018/12/29/use-zsh-default-terminal-mac-os-x/). For Mac users I wouldn't try to figure this out on the terminal (it's not worh messing up with password files etc), there are easy click around ways for the classic Mac Terminal and for iTerm as shown in link.
+
+4. Open PostgreSQL with `psql`
+
+# Get going with PostgreSQL (on Cloud)
+
+1. Open PostgreSQL with 
+
+```
+psql -U postgres
+```
+
+1. Get help 
+
+```
+\copyright for distribution terms
+       \h for help with SQL commands
+       \? for help with psql commands
+       \g or terminate with semicolon to execute query
+       \q to quit
+```
+2. See list of databases
+
+```
+postgres=# \l
+                                   List of databases
+     Name     |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges
+--------------+----------+----------+-------------+-------------+-----------------------
+ dbmt_results | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ dbmtresults  | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ films        | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ postgres     | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ template0    | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +
+              |          |          |             |             | postgres=CTc/postgres
+ template1    | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +
+              |          |          |             |             | postgres=CTc/postgres
+(6 rows)
+```
+
+3. Create database with `CREATE DATABASE test;`
+
+Commands can be *all* lowercase or uppercase.   
+But using uppercase allows user to easily differentiate between SQL code vs others.
+
+```
+postgres=# CREATE DATABASE test;
+CREATE DATABASE
+postgres=# \l
+                                   List of databases
+     Name     |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges
+--------------+----------+----------+-------------+-------------+-----------------------
+ dbmt_results | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ dbmtresults  | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ films        | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ postgres     | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+ template0    | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +
+              |          |          |             |             | postgres=CTc/postgres
+ template1    | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +
+              |          |          |             |             | postgres=CTc/postgres
+ test         | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |
+(7 rows)
+```
+
+# Connecting to Database
+
+1. Connect to database with 
+
+```
+psql -U postgres test
+```
+
+You can see the postgres prompt open
+```
+psql (10.9 (Ubuntu 10.9-0ubuntu0.18.04.1))
+Type "help" for help.
+
+test=#
+```
+
+or with
+
+```
+psql -U postgres
+```
+again, list databases
+
+```
+postgres=# \l
+```
+
+And connect to database with `\c`
+
+```
+postgres=# \c test
+```
+you'll see
+
+```
+You are now connected to database "test" as user "postgres".
+```
+
+Note: `psql -h localhost -p 5432 -U postgres test` asks for password and password is not "password"
+
+
+2. Delete database
+
+Delete a database with `DROP DATABASE test;`      
+**WARNING:** This will completely remove all data from the database
+
+Also see about Postgres Prompts [on stackoverflow](https://stackoverflow.com/questions/19668825/meaning-of-different-command-line-prompts-in-postgresql).
+
+
+# Create Tables
+
+1. General way of creating tables:
+
+```{sql}
+CREATE TABLE table_name (
+column name + data type + constraints if any
+);
+```
+
+For example:
+
+```{sql}
+CREATE TABLE person (
+  id int,
+  first_name VARCHAR(50),
+  last_name VARCHAR(50),
+  gender VARCHAR(6),
+  date_of_birth DATE
+);
+```
+       
+2. Then see list of tables in the database with `\d`  for "describe"  
+
+```
+test=# \d
+         List of relations
+ Schema |  Name  | Type  |  Owner
+--------+--------+-------+----------
+ public | person | table | postgres
+(1 row)
+```
+
+To see the details of a table simply go `\d table_name`
+
+For example
+
+```
+test=# \d person
+                         Table "public.person"
+    Column     |         Type          | Collation | Nullable | Default
+---------------+-----------------------+-----------+----------+---------
+ id            | integer               |           |          |
+ first_name    | character varying(50) |           |          |
+ last_name     | character varying(50) |           |          |
+ gender        | character varying(6)  |           |          |
+ date_of_birth | date                  |           |          |
+```
+      
+3. Similarly you can delete tables with `DROP TABLE table_name;`
+
+
+## Data Types
+
+All data types for postgres 11 [www.postgresql.org/docs/11/datatype.html](https://www.postgresql.org/docs/11/datatype.html)
+
+<iframe width="800" height="400" src="https://www.postgresql.org/docs/11/datatype.html#DATATYPE-TABLE"></iframe>
+
+
+
+### Numeric Types
+[postgresql.org/docs/11/datatype-numeric.html](https://www.postgresql.org/docs/11/datatype-numeric.html)
+
+<iframe width="800" height="300" src="https://www.postgresql.org/docs/11/datatype-numeric.html#DATATYPE-NUMERIC-TABLE"></iframe>
+
+
+## Creating tables with Constraints
+
+Only allows data that meet the set constraints to be inserted to the database.
+This allows inserted data to have a certain "quality" (e.g. a record that only contains a person's name and no other information shouldn't be inserted)
+
+For example, SQL code below does not allow NULL data in any columns *except* `email`.
+
+```{sql}
+CREATE TABLE person (
+  id BIGSERIAL NOT NULL PRIMARY KEY,
+  first_name VARCHAR(50) NOT NULL,
+  last_name VARCHAR(50) NOT NULL,
+  gender VARCHAR(7) NOT NULL,
+  date_of_birth DATE NOT NULL,
+  email VARCHAR(150)
+);
+```
+
+Note: `BIGSERIAL` defined as autoincrementing eight-byte integer
+
+So once this is executed, `\d` will show:
+
+```
+              List of relations
+ Schema |     Name      |   Type   |  Owner
+--------+---------------+----------+----------
+ public | person        | table    | postgres
+ public | person_id_seq | sequence | postgres
+(2 rows)
+```
+
+You can see that `person_id_seq` a sequence is also listed even though it is not a table.
+This is the autoincrement we added with `BIGSERIAL`.
+
+**To only list tables go `\dt`**
+
+
+And `\d person` will show
+
+```
+                                       Table "public.person"
+    Column     |          Type          | Collation | Nullable |              Default
+---------------+------------------------+-----------+----------+------------------------------------
+ id            | bigint                 |           | not null | nextval('person_id_seq'::regclass)
+ first_name    | character varying(50)  |           | not null |
+ last_name     | character varying(50)  |           | not null |
+ gender        | character varying(6)   |           | not null |
+ date_of_birth | date                   |           | not null |
+ email         | character varying(150) |           |          |
+Indexes:
+    "person_pkey" PRIMARY KEY, btree (id)
+```
+
+# Insert Records into Tables
+
+An example insert of 2 records with names "Anne" and "Jake"
+
+```{sql}
+INSERT INTO person (
+  first_name,
+  last_name,
+  gender,
+  date_of_birth)
+VALUES ('Anne', 'Smith', 'FEMALE', DATE '1988-01-09');
+
+INSERT INTO person (
+  first_name,
+  last_name,
+  gender,
+  date_of_birth,
+  email)
+VALUES ('Jake', 'Jones', 'MALE', DATE '1990-01-01', 'jake@gmail.com');
+
+
+```
+
+
+No need to specify id, since it's automated.
+
+## Generte 1000 Rows with Mockaroo
+
+Go to mockaroo website [mockaroo.com](https://mockaroo.com/).
+Create toy data with 1000 rows, including columns:
+
+*country_of_birth is an extra column added!*
+
+```
+  first_name VARCHAR(50),
+	last_name VARCHAR(50),
+	email VARCHAR(50),
+	gender VARCHAR(50),
+	date_of_birth DATE,
+	country_of_birth VARCHAR(50)
+```
+
+Download as `.sql` file. This comes with `INSERT` command for each row of the toy data to be inserted in the `person` table. Open file with a tex editor and edit the header for the constraints we added previously. Since we have a new table, it's smart to drop the old and this new one with:
+
+```{sql}
+create table person (
+  id BIGSERIAL NOT NULL PRIMARY KEY,
+	first_name VARCHAR(50) NOT NULL,
+	last_name VARCHAR(50) NOT NULL,
+	email VARCHAR(150) ,
+	gender VARCHAR(7) NOT NULL,
+	date_of_birth DATE NOT NULL,
+	country_of_birth VARCHAR(50) NOT NULL
+);
+```
+
+## Insert data via SQL Script
+
+execute commands from file with `\i /PATH/TO/FILE` 
+
+```
+postgres=# \i /home/ezgikara/person.sql
+CREATE TABLE
+INSERT 0 1
+    .
+    .
+    .
+INSERT 0 1
+```
+
+View table with all columns with 
+
+```{sql}
+postgres=# SELECT * FROM person;
+```
+
+
+## Insert data with R
+
+Insert data to table `person` in `test` database.   
+See `?dbWriteTable` for details.   
+
+```{r}
+require(odbc)
+require(DBI)
+require(tidyverse)
+
+con <- DBI::dbConnect(odbc::odbc(),
+                      driver = "PostgreSQL Unicode",
+                      database = "test",
+                      UID    = "postgres",
+                      PWD    = "password",
+                      host = "localhost",
+                      port = 5432)
+
+dbListTables(con)
+dt <- read_csv("person.csv")
+dt %>%
+  # select(-country_of_birth) %>%
+  dbWriteTable(con, "person", ., append=TRUE)
+```
+
+And read data into R
+
+```{r}
+person_tbl <- tbl(con, "person")
+person_tbl %>%
+  filter(gender == "Male") %>%
+  select(id, first_name) %>%
+  collect() -> lcl_tbl
+```
+
+As seen above you can do all sorts of operations on the database with `dbplyr` (loaded with tidyverse) and then read that into a tibble with `collect()`
+
+
+# Data Operations
+
+Examples for table `person`
+
+## SELECT FROM
+
+Select all columns
+
+```{sql}
+SELECT * FROM person;
+```
+
+Select none of the columns
+
+```{sql}
+SELECT FROM person;
+```
+
+Select a column
+
+```{sql}
+SELECT first_name FROM person;
+```
+
+Select multiple columns
+
+```{sql}
+SELECT first_name, last_name FROM person;
+```
+
+## ORDER BY
+
+```{sql}
+SELECT * FROM person ORDER BY country_of_birth;
+```
+
+Ascending 
+
+```{sql}
+SELECT * FROM person ORDER BY country_of_birth ASC;
+```
+
+Descending
+
+```{sql}
+SELECT * FROM person ORDER BY country_of_birth DESC;
+```
+
+Sort by multiple columns
+
+```{sql}
+SELECT * FROM person ORDER BY country_of_birth, email, id  DESC;
+```
+
+## DISTINCT
+
+Show unique values
+
+```{sql}
+SELECT DISTINCT country_of_birth FROM person ORDER BY country_of_birth;
+```
+
+## WHERE
+
+Same as filter tidyverse
+
+```{sql}
+SELECT * FROM person WHERE gender = 'Female';
+```
+
+Note: strings are asigned with `'` and not with `"`
+
+More filters
+
+```{sql}
+SELECT * FROM person WHERE gender = 'Female' AND country_of_birth = 'Poland' ;
+SELECT * FROM person WHERE  
+  gender = 'Female' AND 
+  (country_of_birth = 'Poland' OR country_of_birth = 'China');
+```
+
+## Comparison operators
+
+```{sql}
+postgres=# SELECT 1 = 1;
+ ?column?
+----------
+ t
+(1 row)
+
+postgres=# SELECT 1 = 2;
+ ?column?
+----------
+ f
+(1 row)
+```
+
+Note: postgres gives TRUE and FALSE for the logical test.
+
+A list of operators:
+
+```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+library(knitr)
+library(tidyverse)
+tribble(
+  ~ Operator, ~ Description,
+  "=", "equal",
+  "<=", "less than or equal",
+  ">=", "grater than or equal",
+  "<>", "not equal"
+) %>% kable
+```
+
+## Limit, Offset & Fetch
+
+Print first 5 rows
+
+```{sql}
+SELECT * FROM person LIMIT 5;
+```
+
+
+Skip first 5 and then print 5 rows
+
+```{sql}
+SELECT * FROM person OFFSET 5 LIMIT 5;
+```
+
+`FETCH` does the same thing, and more "SQL" way of doing it
+
+```{sql}
+SELECT * FROM person OFFSET 5 FETCH FIRST 5 ROW ONLY;
+SELECT * FROM person OFFSET 5 FETCH FIRST 1 ROW ONLY;
+SELECT * FROM person OFFSET 5 FETCH FIRST ROW ONLY;
+```
+## IN
+
+Same idea as `%in%` in R.    
+Select everyone from China, Brasil and France
+
+```{sql}
+SELECT * FROM person WHERE country_of_birth IN ('China', 'Brasil', 'France');
+```
+
+
+## BETWEEN
+
+Print rows born between '200-01-01' and '2015-01-01
+
+```{sql}
+SELECT * FROM person WHERE date_of_birth 
+BETWEEN DATE '2000-01-01' AND '2011-01-01';
+
+```
+
+## Like and iLike
+
+Pattern matching, where `%` represent wildcard.
+
+```{sql}
+SELECT * FROM person WHERE email LIKE '%.com'
+SELECT * FROM person WHERE email LIKE '%@google.com'
+SELECT * FROM person WHERE email LIKE '%@google%'
+```
+
+To math by number of characters use `_`.        
+
+For example 8 characters followed by `@`:
+
+```{sql}
+SELECT * FROM person WHERE email LIKE '________@%'
+```
+	
+## GROUP BY
+Get count of people per country
+
+```{sql}
+SELECT country_of_birth, COUNT(*) FROM person GROUP BY country_of_birth ORDER BY country_of_birth;
+```
+
+## HAVING
+```{sql}
+SELECT country_of_birth, COUNT(*) FROM person 
+GROUP BY country_of_birth 
+HAVING COUNT(*) >= 41
+ORDER BY country_of_birth;
+```
+
+For more detail on aggregate functions see [PpostgreSQL doc](https://www.postgresql.org/docs/9.5/functions-aggregate.html)
+
+### MAX, MIN and SUM
+
+```{sql}
+SELECT MAX(price) FROM CAR;
+SELECT MIN(price) FROM CAR;
+SELECT AVG(price) FROM CAR;
+SELECT ROUND(AVG(price)) FROM CAR;
+```
+
+See min/max price by make and model
+```{sql}
+SELECT make, model, MIN(price) FROM car GROUP BY make, model;
+SELECT make, model, MAX(price) FROM car GROUP BY make, model;
+SELECT make, model, ROUND(AVG(price)) FROM car GROUP BY make, model;
+```
+
+Sum
+```{sql}
+SELECT SUM(price) FROM car;
+SELECT make, SUM(price) FROM car GROUP BY make ORDER BY sum;
+```
+
+## Arithmetic Operators
+
+```{sql}
+SELECT 10 + 2;
+SELECT 10 - 2;
+SELECT 10 / 2;
+SELECT 10 * 2;
+SELECT 10 ^ 2;
+SELECT 5!;
+SELECT 10 % 4;
+```
+
+Round
+
+```{sql}
+SELECT id, make, model, price, 
+ROUND(price * 0.10, 2),  
+ROUND(price - (price * 0.10))
+FROM car;
+```
+
+## ALIAS
+
+Name a column with `AS`
+
+```{sql}
+SELECT id, make, model, price AS original_price, 
+ROUND(price * 0.10, 2) AS ten_percent,  
+ROUND(price - (price * 0.10)) AS discount_after_10_pcent
+FROM car;
+```
+
+## COALESCE
+
+Replace NULL with a value given by user.
+
+```{sql}
+SELECT COALESCE(email, "Email not provided") FROM person;
+```
+
+## NULLIF
+
+Replace a value with NULL to prevent arithmetic errors
+```{sql}
+SELECT 10 / NULLIF(0,0);
+```
+
+## Timestamps and Dates
+
+Skipped
+
+# Database Operations
+
+## Primary Keys
+
+Primary key (PK) is a unique identifier for each record
+
+```{sql}
+SELECT * FROM person LIMIT 1;
+
+insert into person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) values (1, 'Sanders', 'Snowball', 'ssnowball0@google.co.uk', 'Male', '2010-03-24', 'China');
+```
+
+```
+ERROR:  duplicate key value violates unique constraint "person_pkey"
+DETAIL:  Key (id)=(1) already exists.
+```
+
+Change the "unique constraint" and create a duplicated record
+
+```{sql}
+ALTER TABLE person DROP CONSTRAINT person_pkey;
+
+\d person
+
+insert into person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) values (1, 'Sanders', 'Snowball', 'ssnowball0@google.co.uk', 'Male', '2010-03-24', 'China');
+```
+
+
+## Add Primary Keys
+
+```{sql}
+ALTER TABLE person ADD PRIMARY KEY (id);
+```
+
+```
+ERROR:  could not create unique index "person_pkey"
+DETAIL:  Key (id)=(1) is duplicated.
+```
+
+```{sql}
+DELETE FROM person WHERE id = 1;
+ALTER TABLE person ADD PRIMARY KEY (id);
+SELECT * FROM person WHERE id = 1;
+
+insert into person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) values (1, 'Sanders', 'Snowball', 'ssnowball0@google.co.uk', 'Male', '2010-03-24', 'China');
+SELECT * FROM person WHERE id = 1;
+```
+
+### Unique constraints
+
+Create duplicate
+
+```{sql}
+SELECT email, COUNT(*) FROM person GROUP BY email;
+SELECT email, COUNT(*) FROM person GROUP BY email HAVING COUNT(*) > 1;
+insert into person (first_name, last_name, email, gender, date_of_birth, country_of_birth) values ('Bernie', 'Snowball', 'ssnowball0@google.co.uk', 'Male', '2010-03-24', 'China');
+SELECT email, COUNT(*) FROM person GROUP BY email HAVING COUNT(*) > 1;
+SELECT * FROM person WHERE email = 'ssnowball0@google.co.uk';
+```
+
+Add a constraint to keep values unique in a table.
+
+```{sql}
+ALTER TABLE person ADD CONSTRAINT unique_email_address UNIQUE (email);
+```
+
+```
+ERROR:  could not create unique index "unique_email_address"
+DETAIL:  Key (email)=(ssnowball0@google.co.uk) is duplicated.
+```
+```{sql}
+DELETE FROM person WHERE id = 1101;
+ALTER TABLE person ADD CONSTRAINT unique_email_address UNIQUE (email);
+```
+
+## Check Constraints
+
+```{sql}
+SELECT * FROM person;
+insert into person (first_name, last_name, email, gender, date_of_birth, country_of_birth) values ('Bernie', 'Snowball', 'hello@google.co.uk', 'hello', '2010-03-24', 'China');
+SELECT DISTINCT gender FROM person;
+```
+
+We don't want gender to accept anything other than "female" and "male".
+
+```{sql}
+DELETE FROM person WHERE gender = 'hello';
+ALTER TABLE person ADD CONSTRAINT gender_constraint 
+CHECK (gender = 'Female' OR gender = 'Male');
+```
+
+Try adding an unusual gender
+
+```{sql}
+insert into person (first_name, last_name, email, gender, date_of_birth, country_of_birth) values ('Bernie', 'Snowball', 'hello@google.co.uk', 'lol', '2010-03-24', 'China');
+```
+
+```
+ERROR:  new row for relation "person" violates check constraint "gender_constraint"
+DETAIL:  Failing row contains (1103, Bernie, Snowball, hello@google.co.uk, lol, 2010-03-24, China).
+```
+
+## Delete Records
+
+Delete all records
+
+```{sql}
+DELETE FROM person;
+```
+
+Delete specific records by "WHERE"
+
+```{sql}
+DELETE FROM person WHERE id = 1002;
+DELETE FROM person WHERE gender = 'Female' AND country_of_birth = 'Nigeria';
+DELETE FROM person WHERE gender = 'Male' AND country_of_birth = 'Nigeria';
+
+```
+
+## Update Records
+
+Update one or more records.
+Below person with id 9 is missing email, add an email.
+
+```{sql}
+SELECT * FROM person WHERE id = 9;
+UPDATE person SET email = 'fabe@gmail.com' WHERE id = 9;
+SELECT * FROM person WHERE id = 9;
+```
+
+
+Update multiple columns
+
+```{sql}
+UPDATE person SET first_name='Fabian', last_name='Timon', email='fabe2@gmail.com'
+WHERE id = 9;
+SELECT * FROM person WHERE id = 9;
+```
+
+Attention!! Without `WHERE` you will update all records!!
+
+## On Conflict Do Nothing
+
+```{sql}
+SELECT * FROM person WHERE id = 104;
+```
+
+Try to insert same person again
+
+```{sql}
+INSERT INTO person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) 
+VALUES (104, 'Alyda', 'Keedy', 'akeedy2@blinklist.com', 'Female', '1997-08-23', 'Bulgaria');
+```
+
+Fails, because id has a "UNIQUE" constraint
+
+```
+ERROR:  duplicate key value violates unique constraint "person_pkey"
+DETAIL:  Key (id)=(104) already exists.
+```
+Tell what to do when there's conflict (do nothing)
+
+```{sql}
+INSERT INTO person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) 
+VALUES (104, 'Alyda', 'Keedy', 'akeedy2@blinklist.com', 'Female', '1997-08-23', 'Bulgaria')
+ON CONFLICT (id) DO NOTHING;
+```
+
+Nothing is inserted
+
+```
+INSERT 0 0
+```
+
+## Upsert
+
+What if you dont want to "do nothing" and update the record where id is duplicated?
+To let the new insertion update the existing record `DO UPDATE`
+
+Change the email of the person with the new insert
+
+```{sql}
+SELECT * FROM person WHERE id = 104;
+q
+INSERT INTO person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) 
+VALUES (104, 'Alyda', 'Keedy', 'akeedy@gmail.com', 'Female', '1997-08-23', 'Bulgaria')
+ON CONFLICT (id) DO UPDATE SET email=EXCLUDED.email;
+
+SELECT * FROM person WHERE id = 104;
+```
+
+## Foreign Keys & Joins
+
+Foreign key is a column that references a primary key in another table. In order for relationships to work these should be the same data type.
+
+### Adding relationships between tables
+
+Add relationship with person and car tables.
+
+
+Delete tables and add again with the correct columns. 
+
+```{sql}
+\dt
+DROP TABLE person;
+DROP TABLE car;
+```
+
+see `/home/ezgikara/db_setup/tutorial/person-car.sql`
+
+Note the newly added column `	car_id BIGINT REFERENCES car (id)` and constraint `UNIQUE(car_id)`.
+
+
+
+```{sql}
+\i /home/ezgikara/db_setup/tutorial/person-car.sql
+```
+
+All inserted!
+
+```{sql}
+SELECT  * FROM person;
+```
+
+## Updating Foreign Keys
+
+Assign 2 cars to 2 people
+
+```{sql}
+SELECT * FROM person;
+SELECT * FROM car;
+
+\d person
+\d car
+```
+
+Assign a car with `id=2` to person with `id = 1` i.e. assign "Mercedes-Benz" to "Sanders"
+
+
+```{sql}
+UPDATE person SET car_id = 2 WHERE id = 1; 
+SELECT * FROM person;
+```
+
+worked! 
+
+Now assign the other car to another person.
+
+```{sql}
+UPDATE person SET car_id = 1 WHERE id = 3; 
+SELECT * FROM person;
+
+UPDATE person SET car_id = 4 WHERE id = 2; 
+```
+
+
+## Joins
+
+### Inner Joins
+
+Look at tables
+
+```{sql}
+SELECT * FROM person;
+SELECT * FROM car;
+```
+
+
+Inner join them
+
+```{sql}
+SELECT * FROM person 
+JOIN car ON person.car_id = car.id;
+```
+
+Select certain columns from each table
+
+```{sql}
+SELECT person.first_name, car.make, car.model, car.price
+FROM person
+JOIN car ON person.car_id = car.id;
+```
+
+### Left joins
+
+Keep all rows from person
+
+```{sql}
+SELECT * FROM person
+LEFT JOIN car on person.car_id=car.id;
+```
+
+Or keep all rows from car
+
+```{sql}
+SELECT * FROM car
+LEFT JOIN person on person.car_id=car.id;
+```
+
+```{sql}
+SELECT * FROM person
+LEFT JOIN car ON car.id = person.car_id
+WHERE car.* IS NULL;
+
+SELECT * FROM person
+LEFT JOIN car ON car.id = person.car_id
+WHERE car.* IS NULL;
+```
+
+## Deleting Records with Foreign Keys
+
+Add new records and connect records.
+
+```{sql}
+insert into car (id, make, model, price) values (26, 'Ford', 'Mustang', '71126.37');
+insert into person (id, first_name, last_name, email, gender, date_of_birth, country_of_birth) values (9000, 'Marijn', 'Bertrand', 'mbertrand62@reddit.com', 'Male', '2008-01-20', 'Indonesia');
+
+SELECT * FROM car;
+SELECT * FROM person;
+
+UPDATE person SET car_id = 26 WHERE id = 9000;
+```
+
+Now try to delete the newly added record from car.
+
+```{sql}
+DELETE FROM car WHERE id = 26;
+```
+
+```
+ERROR:  update or delete on table "car" violates foreign key constraint "person_car_id_fkey" on table "person"
+DETAIL:  Key (id)=(26) is still referenced from table "person".
+```
+
+Need to remove the foreign key constraint first to delete record.
+
+```{sql}
+DELETE FROM person WHERE id = 9000;
+SELECT * FROM person WHERE id = 9000;
+DELETE FROM car WHERE id = 26;
+```
+
+## Exporting Query to CSV
+
+```{sql}
+SELECT * FROM person
+LEFT JOIN car ON car.id = person.car_id;
+```
+
+Save this
+
+```{sql}
+\copy (SELECT * FROM person LEFT JOIN car ON car.id = person.car_id) TO '/home/ezgikara/db_setup/tutorial/results.csv' DELIMITER ',' CSV HEADER;
+```
+
+## Serial and Sequences
+
+Sequences are simply integers (bigint id big serial is used).
+`nextval('person_id_seq'::regclass)` function generats this integer id for each newly inserted row.
+It can also be executed by itself.
+
+```{sql}
+SELECT * FROM person_id_seq;
+SELECT * FROM person;
+
+SELECT nextval('person_id_seq'::regclass); /* run this line couple of times */
+SELECT * FROM person;
+insert into person (first_name, last_name, email, gender, date_of_birth, country_of_birth) values ('Semus', 'Amus', 'samus@acd.com', 'Male', '2002-05-20', 'UK');
+SELECT * FROM person;
+```
+
+
+## Extensions
+
+Go to [postgresql.org/docs/9.5/external-extensions.html](https://www.postgresql.org/docs/9.5/external-extensions.html)
+
+Lis available extensions
+```{sql}
+SELECT * FROM pg_available_extensions;
+```
+
+## UUID As Primary Keys  
+
+To use UUID extension `uuid-ossp` needs to be installed.
+
+
+```{sql}
+SELECT * FROM pg_available_extensions;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; /* IF NOT EXISTS won't install id already installed */
+```
+
+How to generate UUID?
+
+List functions 
+```{sql}
+\?
+\df
+```
+
+Use `uuid_generate_v4`
+
+```{sql}
+SELECT uuid_generate_v4();
+```
+
+Change the sql script, add UUID as primary key instead of BIGSERIAL,
+drop tables and add new tables with uids
+
+```{sql}
+DROP TABLE person;
+DROP TABLE car;
+\i /home/ezgikara/db_setup/tutorial/person-car2.sql
+
+SELECT * FROM person;
+SELECT * FROM car;
+```
+
+Assign cars to people
+
+```{sql}
+UPDATE person SET car_uid = '37d23e9e-c098-4ccd-a06f-c9678fe3e998' WHERE person_uid = 'c0846efd-d410-4b62-838c-61afdfc0bd45';
+
+UPDATE person SET car_uid = '630adb3a-a1a0-4602-8d9a-5561dc34992a' WHERE person_uid = 'a78080de-63f3-467b-b19e-d97198bad266';
+
+```
+
+And join
+
+```{sql}
+SELECT * FROM person
+JOIN car USING (car_uid);
+
+
+SELECT car_uid, person_uid, first_name, last_name FROM person
+LEFT JOIN car USING (car_uid);
+
+```
+
+
+
+
+
