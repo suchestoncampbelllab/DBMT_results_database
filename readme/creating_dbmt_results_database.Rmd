@@ -1,7 +1,7 @@
 ---
 title: "Creating DBMT Results Database"
 author: "Ezgi Karaesmen"
-date: '`r format(Sys.Date(), "%B %d, %Y")`'
+date: 'Last Updated: `r format(Sys.Date(), "%B %d, %Y")`'
 output: 
   html_document:
     toc: true
@@ -32,7 +32,6 @@ Working directory on CCR:
 
 library(data.table)
 library(tidyverse)
-library(openssl)
 
 file_path <- "/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/Sanger_HRC_allChr_final.txt"
 snp_tbl <- fread(file_path)
@@ -53,7 +52,7 @@ nrow(snp_tbl)
 ```
 39131578
 ```
-##### SNPs with 0 MAF
+SNPs with 0 MAF
 
 ```{r}
 nrow(snp_tbl[BMT_MAF ==0 | BMT_MAF == 1])
@@ -63,7 +62,7 @@ nrow(snp_tbl[BMT_MAF ==0 | BMT_MAF == 1])
 7247568
 ```
 
-##### Low quality/frequency SNPs
+Low quality/frequency SNPs
 
 ```{r}
 nrow(snp_tbl[c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)])
@@ -73,7 +72,7 @@ nrow(snp_tbl[c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)])
 24418707
 ```
 
-#### Save low quality/frequency SNPs and good SNPs in separate files
+Save low quality/frequency SNPs and good SNPs in separate files
 
 ```{r}
 low_snps <- snp_tbl[c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)]
@@ -87,13 +86,36 @@ write.table(ok_snps, "DBprep/ok_snps.txt", sep="\t", quote = FALSE, row.names = 
 ```
 
 
-##### Separate `name` col for further diagnostics
+Separate `name` col for further diagnostics
 
 ```{r}
 ok_snps <- separate(ok_snps, name, c("chr", "pos", "rsid", "ref", "alt"), sep = "_",remove = FALSE)
 ```
 
-##### SNPs with missing rsID
+
+Check indels
+
+```{r}
+ref_indel <- nchar(ok_snps$ref) > 1
+sum(ref_indel)
+```
+
+```
+0
+```
+
+```{r}
+alt_indel <- nchar(ok_snps$alt) > 1
+sum(alt_indel)
+```
+
+```
+0
+```
+
+No indels!
+
+### SNPs with missing rsID
 
 ```{r}
 missing_rsid_idx <- ok_snps$rsid == "."
@@ -104,28 +126,56 @@ sum(missing_rsid_idx)
 555263
 ```
 
-Keep SNPs with rsID only
+Save SNPs with missing rsID
 
 ```{r}
-good_snps <- ok_snps[!missing_rsid_idx,]
-nrow(good_snps)
+miss_snps <- ok_snps[missing_rsid_idx,]
+write_tsv(miss_snps, "DBprep/missingRSID_snps.txt")
 ```
 
-```
-14157608
+Get all dbsnp 151 SNPs in vcf format fom dbsnp ftp via [ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/](ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/)
+
+```{bash}
+cd /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/all_snps_dbsnp_151_GRCh37
+wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/All_20180423.vcf.gz
+wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/All_20180423.vcf.gz.md5
+wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/All_20180423.vcf.gz.tbi
 ```
 
-Save good snps
+
+These files were saved under 
+
+```
+/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/all_snps_dbsnp_151_GRCh37
+```
+
+Missing SNPs were then queried, cleaned by Kris and saved to:
+
+```
+/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/missingsnpRsidDict_cleaned.txt
+```
+
+All details of the queriying steps can be found in:
+
+```
+/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/snpQuery
+```
+
+**NOTE**     
+About ~100 SNPs retreived two rsIDs, of these the older rsID was kept as these were merged to older SNPs. (Yes sounds quite unusual, but what can you do...)           
+\
+
+Import `missingsnpRsidDict_cleaned.txt`
 
 ```{r}
-write.table(good_snps, "DBprep/good_snps.txt", sep="\t", quote = FALSE, row.names = FALSE)
+rsid_snps <- vroom::vroom("missingsnpRsidDict_cleaned.txt")
 ```
 
-
-#### Check indels
+Check indels again
 
 ```{r}
-ref_indel <- nchar(good_snps$ref) > 1
+
+ref_indel <- nchar(rsid_snps$ref) > 1
 sum(ref_indel)
 ```
 
@@ -134,7 +184,7 @@ sum(ref_indel)
 ```
 
 ```{r}
-alt_indel <- nchar(good_snps$alt) > 1
+alt_indel <- nchar(rsid_snps$alt) > 1
 sum(alt_indel)
 ```
 
@@ -142,31 +192,75 @@ sum(alt_indel)
 0
 ```
 
-No indels!
+Still no indels!
+
 
 ### Wrangling
 
 1. Change `typed` col from "TYPED" or "UNTYPED" to `TRUE` or `FALSE`    
     This is better for the database, boolean takes *much* less space than a 5/7 character column.
 2. Unite `name` with `typed` to create `snp_str` this column now has the format:   
-    **"10_98087_rs11252127_C_T_TRUE"**
+    **"10_98087_rs11252127_C_T_TRUE"**        
+3. For SNPs with missing rsID, replace `.` in snp_str with `[CHR]:[POS]_[REF]/[ALT]` (e.g. 10:118527881_C/T) format for each SNP. This is how these SNPs's rsIDs are represented in the result files. So in order to retreive mathcing hashed IDs the string should be a perfect match!
 
 NOTE: This `snp_str` column will then be hashed with MD5 algorithm creating `snp_id` for database.
 
 ```{r}
+rsid_snps <- rsid_snps %>%
+  mutate(rsid_str = glue::glue("{chr}:{pos}_{ref}/{alt}"),
+         typed = ifelse(typed == "TYPED", T, F)) %>%
+  unite(snp_str, chr, pos, rsid_str, ref, alt, typed, remove = FALSE) %>%
+  select(-INFO, -allele, -name, -rsid_str) %>%
+  rename(INFO = info)
+
+good_snps <- ok_snps[!missing_rsid_idx,]
 good_snps <- good_snps %>%
- mutate(
+  mutate(
     typed = ifelse(typed == "TYPED", T, F),
-    typed2 = typed) %>%
-  unite(snp_str, name, typed2)
+    typed2 = typed,
+    chr = as.numeric(chr),
+    pos = as.numeric(pos)) %>%
+  unite(snp_str, name, typed2) %>%
+  bind_rows(rsid_snps)
+
+anyDuplicated(good_snps$snp_str)
 ```
+
+```
+0
+```
+
+```{r}
+dim(good_snps)
+```
+
+```
+[1] 14710148       10
+```
+
 
 Save good snps ready to hash
 
 ```{r}
-write.table(good_snps, "DBprep/good_snps.txt", sep="\t", quote = FALSE, row.names = FALSE)
+good_snps %>%
+  arrange(chr, pos) %>%
+  write_tsv("DBprep/good_snps.txt")
 ```
 
+
+**NOTE**     
+Tri-allelic SNP example
+
+```
+                        snp_str chr    pos      rsid ref alt typed  publicMAF
+1 10_129082_rs9419542_C_G_FALSE  10 129082 rs9419542   C   G FALSE 0.05056980
+2 10_129082_rs9419542_C_T_FALSE  10 129082 rs9419542   C   T FALSE 0.00117031
+     BMT_MAF     INFO
+1 0.05327020 0.959468
+2 0.00155371 0.805528
+```
+
+While rsIDs are the same, `snp_str` is unique for both.
 
 ### Transfer files to cloud
 

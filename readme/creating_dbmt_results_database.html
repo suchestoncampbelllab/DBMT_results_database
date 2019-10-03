@@ -12,7 +12,7 @@
 
 <meta name="author" content="Ezgi Karaesmen" />
 
-<meta name="date" content="2019-09-25" />
+<meta name="date" content="2019-10-03" />
 
 <title>Creating DBMT Results Database</title>
 
@@ -1506,7 +1506,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Creating DBMT Results Database</h1>
 <h4 class="author">Ezgi Karaesmen</h4>
-<h4 class="date">September 25, 2019</h4>
+<h4 class="date">October 03, 2019</h4>
 
 </div>
 
@@ -1525,7 +1525,6 @@ div.tocify {
 
 library(data.table)
 library(tidyverse)
-library(openssl)
 
 file_path &lt;- &quot;/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/Sanger_HRC_allChr_final.txt&quot;
 snp_tbl &lt;- fread(file_path)</code></pre>
@@ -1537,50 +1536,62 @@ snp_tbl &lt;- fread(file_path)</code></pre>
 <p>Total number of snps</p>
 <pre class="r"><code>nrow(snp_tbl)</code></pre>
 <pre><code>39131578</code></pre>
-<div id="snps-with-0-maf" class="section level5">
-<h5>SNPs with 0 MAF</h5>
+<p>SNPs with 0 MAF</p>
 <pre class="r"><code>nrow(snp_tbl[BMT_MAF ==0 | BMT_MAF == 1])</code></pre>
 <pre><code>7247568</code></pre>
-</div>
-<div id="low-qualityfrequency-snps" class="section level5">
-<h5>Low quality/frequency SNPs</h5>
+<p>Low quality/frequency SNPs</p>
 <pre class="r"><code>nrow(snp_tbl[c(BMT_MAF &lt; 0.001 | BMT_MAF &gt; 1-0.001 | INFO &lt; 0.3)])</code></pre>
 <pre><code>24418707</code></pre>
-</div>
-</div>
-<div id="save-low-qualityfrequency-snps-and-good-snps-in-separate-files" class="section level4">
-<h4>Save low quality/frequency SNPs and good SNPs in separate files</h4>
+<p>Save low quality/frequency SNPs and good SNPs in separate files</p>
 <pre class="r"><code>low_snps &lt;- snp_tbl[c(BMT_MAF &lt; 0.001 | BMT_MAF &gt; 1-0.001 | INFO &lt; 0.3)]
 write.table(low_snps, &quot;DBprep/low_snps.txt&quot;, sep=&quot;\t&quot;, quote = FALSE, row.names = FALSE)</code></pre>
 <pre class="r"><code>ok_snps &lt;- snp_tbl[!c(BMT_MAF &lt; 0.001 | BMT_MAF &gt; 1-0.001 | INFO &lt; 0.3)]
 write.table(ok_snps, &quot;DBprep/ok_snps.txt&quot;, sep=&quot;\t&quot;, quote = FALSE, row.names = FALSE)</code></pre>
-<div id="separate-name-col-for-further-diagnostics" class="section level5">
-<h5>Separate <code>name</code> col for further diagnostics</h5>
+<p>Separate <code>name</code> col for further diagnostics</p>
 <pre class="r"><code>ok_snps &lt;- separate(ok_snps, name, c(&quot;chr&quot;, &quot;pos&quot;, &quot;rsid&quot;, &quot;ref&quot;, &quot;alt&quot;), sep = &quot;_&quot;,remove = FALSE)</code></pre>
-</div>
-<div id="snps-with-missing-rsid" class="section level5">
-<h5>SNPs with missing rsID</h5>
-<pre class="r"><code>missing_rsid_idx &lt;- ok_snps$rsid == &quot;.&quot;
-sum(missing_rsid_idx)</code></pre>
-<pre><code>555263</code></pre>
-<p>Keep SNPs with rsID only</p>
-<pre class="r"><code>good_snps &lt;- ok_snps[!missing_rsid_idx,]
-nrow(good_snps)</code></pre>
-<pre><code>14157608</code></pre>
-<p>Save good snps</p>
-<pre class="r"><code>write.table(good_snps, &quot;DBprep/good_snps.txt&quot;, sep=&quot;\t&quot;, quote = FALSE, row.names = FALSE)</code></pre>
-</div>
-</div>
-<div id="check-indels" class="section level4">
-<h4>Check indels</h4>
-<pre class="r"><code>ref_indel &lt;- nchar(good_snps$ref) &gt; 1
+<p>Check indels</p>
+<pre class="r"><code>ref_indel &lt;- nchar(ok_snps$ref) &gt; 1
 sum(ref_indel)</code></pre>
 <pre><code>0</code></pre>
-<pre class="r"><code>alt_indel &lt;- nchar(good_snps$alt) &gt; 1
+<pre class="r"><code>alt_indel &lt;- nchar(ok_snps$alt) &gt; 1
 sum(alt_indel)</code></pre>
 <pre><code>0</code></pre>
 <p>No indels!</p>
 </div>
+</div>
+<div id="snps-with-missing-rsid" class="section level3">
+<h3>SNPs with missing rsID</h3>
+<pre class="r"><code>missing_rsid_idx &lt;- ok_snps$rsid == &quot;.&quot;
+sum(missing_rsid_idx)</code></pre>
+<pre><code>555263</code></pre>
+<p>Save SNPs with missing rsID</p>
+<pre class="r"><code>miss_snps &lt;- ok_snps[missing_rsid_idx,]
+write_tsv(miss_snps, &quot;DBprep/missingRSID_snps.txt&quot;)</code></pre>
+<p>Get all dbsnp 151 SNPs in vcf format fom dbsnp ftp via <a href="ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/">ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/</a></p>
+<pre class="bash"><code>cd /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/all_snps_dbsnp_151_GRCh37
+wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/All_20180423.vcf.gz
+wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/All_20180423.vcf.gz.md5
+wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/All_20180423.vcf.gz.tbi</code></pre>
+<p>These files were saved under</p>
+<pre><code>/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/all_snps_dbsnp_151_GRCh37</code></pre>
+<p>Missing SNPs were then queried, cleaned by Kris and saved to:</p>
+<pre><code>/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/missingsnpRsidDict_cleaned.txt</code></pre>
+<p>All details of the queriying steps can be found in:</p>
+<pre><code>/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/snpQuery</code></pre>
+<p><strong>NOTE</strong><br />
+About ~100 SNPs retreived two rsIDs, of these the older rsID was kept as these were merged to older SNPs. (Yes sounds quite unusual, but what can you do…)<br />
+<br />
+</p>
+<p>Import <code>missingsnpRsidDict_cleaned.txt</code></p>
+<pre class="r"><code>rsid_snps &lt;- vroom::vroom(&quot;missingsnpRsidDict_cleaned.txt&quot;)</code></pre>
+<p>Check indels again</p>
+<pre class="r"><code>ref_indel &lt;- nchar(rsid_snps$ref) &gt; 1
+sum(ref_indel)</code></pre>
+<pre><code>0</code></pre>
+<pre class="r"><code>alt_indel &lt;- nchar(rsid_snps$alt) &gt; 1
+sum(alt_indel)</code></pre>
+<pre><code>0</code></pre>
+<p>Still no indels!</p>
 </div>
 <div id="wrangling" class="section level3">
 <h3>Wrangling</h3>
@@ -1588,16 +1599,45 @@ sum(alt_indel)</code></pre>
 <li>Change <code>typed</code> col from “TYPED” or “UNTYPED” to <code>TRUE</code> or <code>FALSE</code><br />
 This is better for the database, boolean takes <em>much</em> less space than a 5/7 character column.</li>
 <li>Unite <code>name</code> with <code>typed</code> to create <code>snp_str</code> this column now has the format:<br />
-<strong>“10_98087_rs11252127_C_T_TRUE”</strong></li>
+<strong>“10_98087_rs11252127_C_T_TRUE”</strong><br />
+</li>
+<li>For SNPs with missing rsID, replace <code>.</code> in snp_str with <code>[CHR]:[POS]_[REF]/[ALT]</code> (e.g. 10:118527881_C/T) format for each SNP. This is how these SNPs’s rsIDs are represented in the result files. So in order to retreive mathcing hashed IDs the string should be a perfect match!</li>
 </ol>
 <p>NOTE: This <code>snp_str</code> column will then be hashed with MD5 algorithm creating <code>snp_id</code> for database.</p>
-<pre class="r"><code>good_snps &lt;- good_snps %&gt;%
- mutate(
+<pre class="r"><code>rsid_snps &lt;- rsid_snps %&gt;%
+  mutate(rsid_str = glue::glue(&quot;{chr}:{pos}_{ref}/{alt}&quot;),
+         typed = ifelse(typed == &quot;TYPED&quot;, T, F)) %&gt;%
+  unite(snp_str, chr, pos, rsid_str, ref, alt, typed, remove = FALSE) %&gt;%
+  select(-INFO, -allele, -name, -rsid_str) %&gt;%
+  rename(INFO = info)
+
+good_snps &lt;- ok_snps[!missing_rsid_idx,]
+good_snps &lt;- good_snps %&gt;%
+  mutate(
     typed = ifelse(typed == &quot;TYPED&quot;, T, F),
-    typed2 = typed) %&gt;%
-  unite(snp_str, name, typed2)</code></pre>
+    typed2 = typed,
+    chr = as.numeric(chr),
+    pos = as.numeric(pos)) %&gt;%
+  unite(snp_str, name, typed2) %&gt;%
+  bind_rows(rsid_snps)
+
+anyDuplicated(good_snps$snp_str)</code></pre>
+<pre><code>0</code></pre>
+<pre class="r"><code>dim(good_snps)</code></pre>
+<pre><code>[1] 14710148       10</code></pre>
 <p>Save good snps ready to hash</p>
-<pre class="r"><code>write.table(good_snps, &quot;DBprep/good_snps.txt&quot;, sep=&quot;\t&quot;, quote = FALSE, row.names = FALSE)</code></pre>
+<pre class="r"><code>good_snps %&gt;%
+  arrange(chr, pos) %&gt;%
+  write_tsv(&quot;DBprep/good_snps.txt&quot;)</code></pre>
+<p><strong>NOTE</strong><br />
+Tri-allelic SNP example</p>
+<pre><code>                        snp_str chr    pos      rsid ref alt typed  publicMAF
+1 10_129082_rs9419542_C_G_FALSE  10 129082 rs9419542   C   G FALSE 0.05056980
+2 10_129082_rs9419542_C_T_FALSE  10 129082 rs9419542   C   T FALSE 0.00117031
+     BMT_MAF     INFO
+1 0.05327020 0.959468
+2 0.00155371 0.805528</code></pre>
+<p>While rsIDs are the same, <code>snp_str</code> is unique for both.</p>
 </div>
 <div id="transfer-files-to-cloud" class="section level3">
 <h3>Transfer files to cloud</h3>
@@ -1908,21 +1948,111 @@ dbWriteTable(con, &quot;outcome&quot;, outcm_tbl, append=TRUE)</code></pre>
 <div id="data-prep" class="section level2">
 <h2>Data Prep</h2>
 <p>On CCR side:</p>
-<pre class="r"><code>require(tidyverse)
-require(glue)
-require(vroom)
+<pre class="r"><code>library(tidyverse)
+library(vroom)
 
-path &lt;- &quot;/projects/rpci/lsuchest/lsuchest/DBMT_results/DBMT_mixed/analyses/mixed_EA_results/out/&quot;
-res_files &lt;- dir(path)
+path_in &lt;- &quot;/projects/rpci/lsuchest/lsuchest/DBMT_results/DBMT_mixed/analyses/mixed_EA_results/out/&quot;
+path_out &lt;- &quot;/projects/rpci/lsuchest/lsuchest/DBMT_results/DBprep/&quot;
 
+res_files &lt;- dir(path_in)
+
+for (res_file in res_files){
+  
+  # string manipulation for file names and outcome_str
+  res_file %&gt;%
+    str_remove(&quot;.res&quot;) %&gt;%
+    str_split(., &quot;_&quot;) %&gt;% .[[1]] -&gt; outcm_splt
+  
+  save_file_as &lt;- paste(
+    outcm_splt[2],
+    outcm_splt[3],
+    outcm_splt[4],
+    &quot;1y&quot;,
+    &quot;EA&quot;,
+    &quot;NA&quot;,
+    ifelse(
+      as.numeric(outcm_splt[1]) &lt; 10,
+      paste0(&quot;CHR0&quot;, outcm_splt[1], &quot;.res&quot;),
+      paste0(&quot;CHR&quot;, outcm_splt[1], &quot;.res&quot;)),
+    sep = &quot;_&quot;
+  )
+  
+  # load file
+  chr_res &lt;- vroom::vroom(
+    paste0(path_in, res_file),
+    col_select = list(
+      CHR,
+      POS,
+      RSID,
+      REF = REF.O,
+      ALT = ALT.O,
+      TYPED,
+      ALT_METAL = ALT,
+      contains(&quot;COEF&quot;),
+      contains(&quot;PVALUE&quot;),
+      SAMP_FREQ_ALT_c1,
+      SAMP_FREQ_ALT_c2,
+      HetISq,
+      HetPVal),
+    progress = FALSE
+  )
+  
+  # modify and save
+  chr_res %&gt;%
+    mutate_at(vars(matches(&quot;PVALUE*&quot;)), list(nlog10 = ~ log10(.) * -1)) %&gt;%
+    unite(snp_str, CHR:TYPED) %&gt;%
+    select(-matches(&quot;PVALUE_*&quot;),
+           ends_with(&quot;nlog10&quot;)) %&gt;%
+    write_tsv(path = paste0(path_out, save_file_as))
+  message(save_file_as, &quot;______DONE&quot;)
+}</code></pre>
+<div id="transfer-files-to-cloud-2" class="section level3">
+<h3>Transfer files to cloud</h3>
+<p>Send file to cloud location <code>/projects/DBMT_results_database/results_tbl/</code></p>
+<pre class="bash"><code>scp /projects/rpci/lsuchest/lsuchest/DBMT_results/DBprep/D_mixed_PFS_1y_EA_NA_CHR10.res ezgikara@199.109.192.6:/projects/DBMT_results_database/results_tbl/</code></pre>
+</div>
+</div>
+<div id="create-table-1" class="section level2">
+<h2>Create Table</h2>
+<pre class="sql"><code>create table results (
+    PRIMARY KEY (snp_id, outcome_id),
+    snp_id UUID REFERENCES snp (snp_id),
+    outcome_id UUID REFERENCES outcome (outcome_id),
+    alt_metal CHAR(1),
+  coef_c1 REAL,
+  coef_c2 REAL,
+  coef_m REAL,
+  se_coef_c1 REAL,
+  se_coef_c2 REAL,
+  se_coef_m REAL,
+  pvalue_c1_nlog10 REAL,
+  pvalue_c2_nlog10 REAL,
+  pvalue_m_nlog10 REAL,
+  samp_freq_alt_c1 REAL,
+  samp_freq_alt_c2 REAL,
+  hetisq REAL,
+  hetpval REAL);</code></pre>
+</div>
+<div id="insert-table" class="section level2">
+<h2>Insert Table</h2>
+<p>On cloud via R, add UUIDs and insert results.</p>
+<pre class="r"><code>library(tidyverse)
+library(DBI)
+library(odbc)
+options(tibble.width = Inf)
+
+con &lt;- DBI::dbConnect(odbc::odbc(), driver = &quot;PostgreSQL Unicode&quot;, 
+    database = &quot;dbmt_results&quot;, UID = &quot;postgres&quot;, PWD = &quot;password&quot;, 
+    host = &quot;localhost&quot;, port = 5432)
+
+res_files &lt;- dir(&quot;results_tbl&quot;)
 res_file &lt;- res_files[1]
 
-res_file %&gt;%
-  str_remove(&quot;.res&quot;) %&gt;%
-  str_split(., &quot;_&quot;)%&gt;% .[[1]] -&gt; outcm_str
+chr_res &lt;- vroom::vroom(paste0(&quot;results_tbl/&quot;, res_file))
 
-outcm_str &lt;- paste(outcm_str[2], outcm_str[3], outcm_str[4], &quot;1y&quot;, &quot;EA&quot;, &quot;NA&quot;, sep=&quot;_&quot;)
-
+chr_res %&gt;% head %&gt;%
+  mutate(outcome_str = str_remove(res_file, &quot;_CHR[0-9]+.res&quot;))
+  head
 
 &quot;D_mixed_DRM_1y_EA_NA_CHR01.res&quot; %&gt;%
   str_remove(&quot;_CHR[0-9]+.res&quot;)
@@ -1932,7 +2062,6 @@ openssl::md5(outcm_str)
 &quot;2ee36ecd-d90c-e373-328a-c6f7ee302d28&quot;
 
 
-chr_res &lt;- vroom::vroom(&quot;2_R_mixed_OS.res&quot;)
 
 
 
@@ -1946,8 +2075,13 @@ write_tsv(outcm_tbl, &quot;outcome_tbl.tsv&quot;)
 
 outcm_tbl %&gt;%
   mutate(outcome_id = openssl::md5(outcome_str)) %&gt;%
-  select(-outcome_str) -&gt; outcm_tbl</code></pre>
-<p>give the outcome_str as file name, do manipulation, transfer over to cloud.</p>
+  select(-outcome_str) -&gt; outcm_tbl
+
+
+snp_tbl &lt;- tbl(con, &quot;snp&quot;)
+snp_tbl %&gt;%
+  filter(pos == 118527881,
+         chr == 10)</code></pre>
 </div>
 </div>
 <div id="eqtl-table" class="section level1">
