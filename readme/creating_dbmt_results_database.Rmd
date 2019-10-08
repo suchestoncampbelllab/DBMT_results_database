@@ -669,43 +669,47 @@ con <- DBI::dbConnect(odbc::odbc(), driver = "PostgreSQL Unicode",
     database = "dbmt_results", UID = "postgres", PWD = "password", 
     host = "localhost", port = 5432)
 
+dbListTables(con)
+
 res_files <- dir("results_tbl")
 res_file <- res_files[1]
 
 chr_res <- vroom::vroom(paste0("results_tbl/", res_file))
 
-chr_res %>% head %>%
-  mutate(outcome_str = str_remove(res_file, "_CHR[0-9]+.res"))
-  head
+chr_res <- chr_res %>%
+  mutate(outcome_str = str_remove(res_file, "_CHR[0-9]+.res"),
+         snp_id = openssl::md5(snp_str),
+         outcome_id = openssl::md5(outcome_str)) %>%
+  select(-snp_str, -outcome_str)
+  
+colnames(chr_res) <- tolower(gsub("[.]", "_", colnames(chr_res)))
 
-"D_mixed_DRM_1y_EA_NA_CHR01.res" %>%
-  str_remove("_CHR[0-9]+.res")
+odbc::dbWriteTable(con, "results", chr_res[5,], append=TRUE)
 
-
-openssl::md5(outcm_str)
-"2ee36ecd-d90c-e373-328a-c6f7ee302d28"
-
-
-
-
-
-
-outcm_tbl %>%
-  unite(outcome_str, 
-        genome, disease_grp, outcome, censor_time,ethnicity, pt_subset,
-        remove = FALSE) -> outcm_tbl
-
-write_tsv(outcm_tbl, "outcome_tbl.tsv")
-
-outcm_tbl %>%
-  mutate(outcome_id = openssl::md5(outcome_str)) %>%
-  select(-outcome_str) -> outcm_tbl
-
+chr_res[5, "snp_id"] == openssl::md5(snp_str)
 
 snp_tbl <- tbl(con, "snp")
-snp_tbl %>%
-  filter(pos == 118527881,
-         chr == 10)
+snp_chr10 <- snp_tbl %>% 
+  filter(chr == 10) %>%
+  data.frame()
+  
+snp_chr10 <- mutate(snp_chr10, snp_id = tolower(gsub("-", "", snp_id)))
+
+chr_res %>%
+  mutate(snp_id=as.character(snp_id)) %>% 
+  anti_join(snp_chr10) -> miss_snps
+
+miss_snps %>% head
+
+snpids_chr10 <- snp_chr10 %>% pull(snp_id)
+chr_res %>%
+  filter(!as.character(snp_id) %in% snpids_chr10) -> miss_snps
+setdiff(as.character(chr_res$snp_id), snpids_chr10)
+
+
+head(snp_chr10)
+head(chr_res)
+
 
 
 ```

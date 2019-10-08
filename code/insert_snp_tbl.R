@@ -11,7 +11,7 @@ con <- DBI::dbConnect(odbc::odbc(),
 dbListTables(con)
 
 
-snp_tbl <- vroom::vroom("/projects/DBMT_database/snp_tbl/good_snps.txt")
+snp_tbl <- vroom::vroom("/projects/DBMT_results_database/snp_tbl/good_snps.txt")
 snp_tbl <- dplyr::select(
   snp_tbl,
   snp_str,
@@ -35,4 +35,4 @@ for( i in sort(unique(snp_tbl$chr)) ){
   print(paste("Inserted CHR", i ))
 }
 
-close.connection(con)
+
