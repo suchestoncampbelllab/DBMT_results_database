@@ -6,8 +6,66 @@ library(tidyverse)
 options(tibble.width = Inf)
 setwd("/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep")
 
-file_path <- "/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/Sanger_HRC_allChr_final.txt"
-snp_tbl <- fread(file_path)
+all_chr <- "/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/Sanger_HRC_allChr_final.txt"
+x_chr <- "/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/Sanger_HRC_chrX_final.txt"
+
+snp_tbl <- fread(all_chr)
+xchr_snp_tbl <- fread(x_chr)
+
+separate(snp_tbl[1:5,], name, c("chr", "pos", "rsid", "ref", "alt"), sep = "_",remove = FALSE) %>%
+  colnames(.) %>%
+  matrix(data=., nrow = 1) -> save_cols
+
+write.table(save_cols, "split_snp_tbl.tsv", sep="\t", row.names = FALSE, quote = FALSE, col.names = FALSE)
+write.table(save_cols, "missing_snps.tsv", sep="\t", row.names = FALSE, quote = FALSE, col.names = FALSE)
+
+
+for(chr in 1:22){
+  chr_rows <- grep(paste0(chr, "_[0-9]"), snp_tbl$name)
+  chr_snp <- separate(snp_tbl[chr_rows], name, c("chr", "pos", "rsid", "ref", "alt"), sep = "_",remove = FALSE)
+  miss_snp <- chr_snp[rsid == "."]
+  
+  write_tsv(chr_snp, "split_snp_tbl.tsv", append = TRUE)
+  write_tsv(miss_snp, "missing_snps.tsv", append = TRUE)
+}
+
+## check indels
+
+ref_indel <- nchar(ok_snps$ref) > 1
+sum(ref_indel)
+
+alt_indel <- nchar(ok_snps$alt) > 1
+sum(alt_indel)
+
+
+## missing rsID snps
+missing_rsid_idx <- ok_snps$rsid == "."
+sum(missing_rsid_idx)
+miss_snps <- ok_snps[missing_rsid_idx,]
+write_tsv(miss_snps, "missingRSID_snps.txt")
+
+
+
+
+c("10_60494_rs568182971_A_G",
+  "10_60494_rs5681871_A_G",
+  "10_60494_rs68182971_A_G",
+  "1_60410_rs568182971_A_G",
+  "1_rs5681829710_A_G
+  13_1060494_rs5681829710_A_G",
+  "13_60494_10:1234134_A/T_A_G") -> tx
+
+
+low_info <- snp_tbl$INFO < 0.1
+
+
+system.time({iris[sample(1:150, 50),]})
+
+chr_idx <- grepl("/10_*")
+chr_snptbl <- snp_tbl[]
+
+
+
 
 ## low snps
 low_snps <- snp_tbl[c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)]

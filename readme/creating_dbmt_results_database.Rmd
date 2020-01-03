@@ -22,9 +22,8 @@ Working directory on CCR:
 ```
 /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC
 ```
-### Data and Libraries
 
-`Sanger_HRC_allChr_final.txt` has nul character values in `name` column, which causes errors while character wrangling. Currently (Sep 2019) dev version of `fread()` skips nul characters by default and used to import the file.
+`Sanger_HRC_allChr_final.txt` has null character values in `name` column, which causes errors while character wrangling. Currently (Sep 2019) dev version of `fread()` skips nul characters by default and used to import the file.
 
 ```{r}
 ### data.table dev version
@@ -37,103 +36,15 @@ file_path <- "/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF
 snp_tbl <- fread(file_path)
 ```
 
+Because splitting the first column of the SNP file is very memory intensive a SLURM job was submitted to create `DBprep/split_snp_tbl_1to22chr.tsv` and `DBprep/split_snp_tbl_Xchr.tsv` files. Code for these can be found on GitHub `code/snp_tbl_split.R` and `code/snp_tbl_split_sjob.sh`. 
 
-### Diagnostics
+R script `code/snp_tbl_split.R`     
+1. Splits the first column `name` by chromosome, position, rsID, reference allele and alternative allele.    
+2. Saves SNPs with missing rsIDs to `DBprep/missing_snps_1to22chr.tsv` and `DBprep/missing_snps_Xchr.tsv`.
 
-#### Check low MAF and Info snps
+## Retrieving missing rsIDs
 
-
-Total number of snps
-
-```{r}
-nrow(snp_tbl)
-```
-
-```
-39131578
-```
-SNPs with 0 MAF
-
-```{r}
-nrow(snp_tbl[BMT_MAF ==0 | BMT_MAF == 1])
-```
-
-```
-7247568
-```
-
-Low quality/frequency SNPs
-
-```{r}
-nrow(snp_tbl[c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)])
-```
-
-```
-24418707
-```
-
-Save low quality/frequency SNPs and good SNPs in separate files
-
-```{r}
-low_snps <- snp_tbl[c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)]
-write.table(low_snps, "DBprep/low_snps.txt", sep="\t", quote = FALSE, row.names = FALSE)
-```
-
-
-```{r}
-ok_snps <- snp_tbl[!c(BMT_MAF < 0.001 | BMT_MAF > 1-0.001 | INFO < 0.3)]
-write.table(ok_snps, "DBprep/ok_snps.txt", sep="\t", quote = FALSE, row.names = FALSE)
-```
-
-
-Separate `name` col for further diagnostics
-
-```{r}
-ok_snps <- separate(ok_snps, name, c("chr", "pos", "rsid", "ref", "alt"), sep = "_",remove = FALSE)
-```
-
-
-Check indels
-
-```{r}
-ref_indel <- nchar(ok_snps$ref) > 1
-sum(ref_indel)
-```
-
-```
-0
-```
-
-```{r}
-alt_indel <- nchar(ok_snps$alt) > 1
-sum(alt_indel)
-```
-
-```
-0
-```
-
-No indels!
-
-### SNPs with missing rsID
-
-```{r}
-missing_rsid_idx <- ok_snps$rsid == "."
-sum(missing_rsid_idx)
-```
-
-```
-555263
-```
-
-Save SNPs with missing rsID
-
-```{r}
-miss_snps <- ok_snps[missing_rsid_idx,]
-write_tsv(miss_snps, "DBprep/missingRSID_snps.txt")
-```
-
-Get all dbsnp 151 SNPs in vcf format fom dbsnp ftp via [ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/](ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/)
+Get all dbsnp 151 SNPs in vcf format from dbsnp ftp via [ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/](ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/)
 
 ```{bash}
 cd /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/all_snps_dbsnp_151_GRCh37
@@ -149,33 +60,103 @@ These files were saved under
 /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/all_snps_dbsnp_151_GRCh37
 ```
 
-Missing SNPs were then queried, cleaned by Kris and saved to:
+Missing SNPs were then queried, cleaned by Kris (Wang) and saved to:
 
 ```
-/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/missingsnpRsidDict_cleaned.txt
-```
+/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/missingsnpRsidDict_cleaned_1to22chr.txt
 
-All details of the queriying steps can be found in:
+/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/missingsnpRsidDict_cleaned_Xchr.txt
+```
+**NOTE**     
+About ~100 SNPs retrieved two rsIDs, of these the older rsID was kept as these were merged to older SNPs. (Yes sounds quite unusual, but what can you do...)           
+     
+
+
+All details of the querying steps can be found in:
 
 ```
 /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/snpQuery
 ```
 
-**NOTE**     
-About ~100 SNPs retreived two rsIDs, of these the older rsID was kept as these were merged to older SNPs. (Yes sounds quite unusual, but what can you do...)           
-\
+## Fix missing SNPs
 
-Import `missingsnpRsidDict_cleaned.txt`
+Working directory
 
-```{r}
-rsid_snps <- vroom::vroom("missingsnpRsidDict_cleaned.txt")
+```
+/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep
 ```
 
-Check indels again
+Script `snp_tbl_fix_missing_rsIDs.R` adds queried SNPs with missing rsIDs and also deals with SNPs that have no rsIDs even after querying. This was a memory intensive job and was submitted as a SLURM job with `snp_tbl_fix_missing_rsIDs_sjob.sh`.
+
+Output of these steps are saved as `clean_snp_tbl_1to22chr.tsv` and `clean_snp_tbl_Xchr.tsv`
+
+
+## Diagnostics
 
 ```{r}
+snp_tbl <- vroom::vroom("/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/clean_snp_tbl_1to22chr.tsv")
 
-ref_indel <- nchar(rsid_snps$ref) > 1
+chrx <-  vroom::vroom("/projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/clean_snp_tbl_Xchr.tsv")
+```
+
+Total number of snps
+
+```{r}
+nrow(snp_tbl)
+```
+
+```
+39131578
+```
+
+```{r}
+nrow(chrx)
+```
+
+```
+1228034
+```
+
+SNPs with 0 MAF
+
+```{r}
+snp_tbl %>% 
+  filter(BMT_MAF ==0 | BMT_MAF == 1) %>%
+  nrow()
+```
+
+```
+7247568
+```
+
+Low frequency SNPs
+
+```{r}
+snp_tbl %>% 
+  filter(BMT_MAF < 0.001 | BMT_MAF > 1-0.001) %>%
+  nrow()
+```
+
+```
+24402430
+```
+
+Low quality SNPs
+
+```{r}
+snp_tbl %>% 
+  filter(INFO < 0.3) %>%
+  nrow()
+```
+
+```
+6373749
+```
+
+Check indels
+
+```{r}
+ref_indel <- nchar(snp_tbl$ref) > 1
 sum(ref_indel)
 ```
 
@@ -184,7 +165,7 @@ sum(ref_indel)
 ```
 
 ```{r}
-alt_indel <- nchar(rsid_snps$alt) > 1
+alt_indel <- nchar(snp_tbl$alt) > 1
 sum(alt_indel)
 ```
 
@@ -192,60 +173,62 @@ sum(alt_indel)
 0
 ```
 
-Still no indels!
+No indels!
 
 
-### Wrangling
+### SNPs with missing rsID
+
+Even after querying there were SNPs with no rsID. These SNPs were saved with rsID `[CHR]:[POS]_[REF]_[ALT]` to not allow the `rsid` column to have missing values in the database.
+
+```{r}
+snp_tbl %>%
+  filter(!str_detect(rsid, "^rs")) %>%
+  head(3)
+```
+
+```
+# A tibble: 3 x 10
+  snp_str                           chr    pos rsid         ref   alt   typed
+  <chr>                           <dbl>  <dbl> <chr>        <chr> <chr> <lgl>
+1 1_83108_1:83108_C/G_C_G_FALSE       1  83108 1:83108_C/G  C     G     FALSE
+2 1_565999_1:565999_C/A_C_A_FALSE     1 565999 1:565999_C/A C     A     FALSE
+3 1_701763_1:701763_C/G_C_G_FALSE     1 701763 1:701763_C/G C     G     FALSE
+```
+
+```{r}
+snp_tbl %>%
+  filter(!str_detect(rsid, "^rs")) %>%
+  nrow()
+```
+
+```
+743635
+```
+
+
+## Wrangling Details
+
+All below listed wrangling steps have been completed in with the `snp_tbl_fix_missing_rsIDs.R` script as mentioned above. Some important steps are:
 
 1. Change `typed` col from "TYPED" or "UNTYPED" to `TRUE` or `FALSE`    
-    This is better for the database, boolean takes *much* less space than a 5/7 character column.
+This is better for the database, Boolean takes *much* less space than a 5/7 character column.   
+
 2. Unite `name` with `typed` to create `snp_str` this column now has the format:   
     **"10_98087_rs11252127_C_T_TRUE"**        
-3. For SNPs with missing rsID, replace `.` in snp_str with `[CHR]:[POS]_[REF]/[ALT]` (e.g. 10:118527881_C/T) format for each SNP. This is how these SNPs's rsIDs are represented in the result files. So in order to retreive mathcing hashed IDs the string should be a perfect match!
+    
+3. For SNPs with missing rsID, replace `.` in snp_str with `[CHR]:[POS]_[REF]/[ALT]` (e.g. 10:118527881_C/T) format for each SNP. This is how these SNPs's rsIDs are represented in the result files. So in order to retrieve matching hashed IDs the string should be a perfect match!
 
-NOTE: This `snp_str` column will then be hashed with MD5 algorithm creating `snp_id` for database.
-
-```{r}
-rsid_snps <- rsid_snps %>%
-  mutate(rsid_str = glue::glue("{chr}:{pos}_{ref}/{alt}"),
-         typed = ifelse(typed == "TYPED", T, F)) %>%
-  unite(snp_str, chr, pos, rsid_str, ref, alt, typed, remove = FALSE) %>%
-  select(-INFO, -allele, -name, -rsid_str) %>%
-  rename(INFO = info)
-
-good_snps <- ok_snps[!missing_rsid_idx,]
-good_snps <- good_snps %>%
-  mutate(
-    typed = ifelse(typed == "TYPED", T, F),
-    typed2 = typed,
-    chr = as.numeric(chr),
-    pos = as.numeric(pos)) %>%
-  unite(snp_str, name, typed2) %>%
-  bind_rows(rsid_snps)
-
-anyDuplicated(good_snps$snp_str)
-```
-
-```
-0
-```
+NOTE: This `snp_str` column will then be hashed with MD5 algorithm creating `snp_id` for database. This column should be unique at all times and CANNOT have any duplicated values!
 
 ```{r}
-dim(good_snps)
+anyDuplicated(snp_tbl$snp_str)
 ```
 
 ```
-[1] 14710148       10
+[1] 0
 ```
 
-
-Save good snps ready to hash
-
-```{r}
-good_snps %>%
-  arrange(chr, pos) %>%
-  write_tsv("DBprep/good_snps.txt")
-```
+No duplicated snp_str!
 
 
 **NOTE**     
@@ -262,15 +245,15 @@ Tri-allelic SNP example
 
 While rsIDs are the same, `snp_str` is unique for both.
 
-### Transfer files to cloud
+## Transfer files to cloud
 
-Send file to cloud location `/projects/DBMT_results_database/snp_tbl/`
+Send both files (e.g. `clean_snp_tbl_1to22chr.tsv` and `clean_snp_tbl_Xchr.tsv`) to cloud location `/data/DBMT_results_database/snp_tbl/`
 
 ```{bash}
-scp /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/good_snps.txt ezgikara@199.109.192.6:/projects/DBMT_results_database/snp_tbl/
+scp /projects/rpci/lsuchest/lsuchest/Rserve/BMT/genetic_data/PLINK2VCF/Sanger_HRC/DBprep/clean_snp_tbl_* ezgikara@199.109.192.37:/data/DBMT_results_database/snp_tbl/
 ```
 
-### Add hashed IDs
+## Pre-database prep - Adding hashed IDs
 
 Working directory on cloud: 
 
@@ -278,7 +261,7 @@ Working directory on cloud:
 /projects/DBMT_results_database/snp_tbl
 ```
 
-See `/projects/DBMT_results_database/code/insert_snp_tbl.R` for actual code.
+See `/data/DBMT_results_database/code/insert_snp_tbl.R` for actual code.
 
 
 ```{r}
@@ -385,20 +368,20 @@ dbWriteTable(con, "snp", snp_tbl_chr, append=TRUE)
 ### Transfer files to cloud
 
 ```{bash}
-scp /projects/rpci/lsuchest/lsuchest/DBMT_PhenoData/DBMT_PhenoData_EA_long_allVar_20190223.txt ezgikara@199.109.192.6:/projects/DBMT_results_database/outcome_tbl/
+scp /projects/rpci/lsuchest/lsuchest/DBMT_PhenoData/DBMT_PhenoData_EA_long_allVar_20190223.txt ezgikara@199.109.192.6:/data/DBMT_results_database/outcome_tbl/
 
-scp /projects/rpci/lsuchest/lsuchest/DBMT_PhenoData/mismatch_phenotype_wide_100d_20190223.txt ezgikara@199.109.192.6:/projects/DBMT_results_database/outcome_tbl/
+scp /projects/rpci/lsuchest/lsuchest/DBMT_PhenoData/mismatch_phenotype_wide_100d_20190223.txt ezgikara@199.109.192.6:/data/DBMT_results_database/outcome_tbl/
 ```
 
 
 ### Table Prep in R
 
-See `/projects/DBMT_results_database/code/insert_outcome_tbl.R`
+See `/data/DBMT_results_database/code/insert_outcome_tbl.R`
 
 Working directory on cloud:
 
 ```
-/projects/DBMT_results_database
+/data/DBMT_results_database
 ```
 
 All code below is to wrangle the data to get it ready for database insertion.    
