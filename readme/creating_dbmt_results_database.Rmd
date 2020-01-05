@@ -543,77 +543,32 @@ dbWriteTable(con, "outcome", outcm_tbl, append=TRUE)
 
 ## Data Prep
 
-On CCR side:
+File processing and tranfer to cloud on the CCR side are done with `code/result_tbl_process_transfer.R` and were submitted for all files under each results directory with `code/result_tbl_process_transfer_sjob.sh`. Both of these scripts are available on the GitHub repository and at `/projects/rpci/lsuchest/lsuchest/DBMT_results/DBprep/code`. All intermediary files can be found under `/projects/rpci/lsuchest/lsuchest/DBMT_results/DBprep/`.   
+       
 
-```{r}
-library(tidyverse)
-library(vroom)
+Both scripts do the following:     
+- For a given `out` directory (e.g. `/projects/rpci/lsuchest/lsuchest/DBMT_results/DBMT_mixed/analyses/mixed_EA_results/out`) it submits a job for each file (these should be `.res` files) under that directory.    
+- During each job the file is processed to be inserted to the database and named accordingly to ease the database insertion in the cloud side.    
+- Upon completing the processing it transfers the file to the cloud side `data/DBMT_results_database/results_tbl`. 
 
-path_in <- "/projects/rpci/lsuchest/lsuchest/DBMT_results/DBMT_mixed/analyses/mixed_EA_results/out/"
-path_out <- "/projects/rpci/lsuchest/lsuchest/DBMT_results/DBprep/"
+**Important notes:**
 
-res_files <- dir(path_in)
+1. For file transfer to work ssh keys should be set up by the user. This is explained in detail below.    
 
-for (res_file in res_files){
-  
-  # string manipulation for file names and outcome_str
-  res_file %>%
-    str_remove(".res") %>%
-    str_split(., "_") %>% .[[1]] -> outcm_splt
-  
-  save_file_as <- paste(
-    outcm_splt[2],
-    outcm_splt[3],
-    outcm_splt[4],
-    "1y",
-    "EA",
-    "NA",
-    ifelse(
-      as.numeric(outcm_splt[1]) < 10,
-      paste0("CHR0", outcm_splt[1], ".res"),
-      paste0("CHR", outcm_splt[1], ".res")),
-    sep = "_"
-  )
-  
-  # load file
-  chr_res <- vroom::vroom(
-    paste0(path_in, res_file),
-    col_select = list(
-      CHR,
-      POS,
-      RSID,
-      REF = REF.O,
-      ALT = ALT.O,
-      TYPED,
-      ALT_METAL = ALT,
-      contains("COEF"),
-      contains("PVALUE"),
-      SAMP_FREQ_ALT_c1,
-      SAMP_FREQ_ALT_c2,
-      HetISq,
-      HetPVal),
-    progress = FALSE
-  )
-  
-  # modify and save
-  chr_res %>%
-    mutate_at(vars(matches("PVALUE*")), list(nlog10 = ~ log10(.) * -1)) %>%
-    unite(snp_str, CHR:TYPED) %>%
-    select(-matches("PVALUE_*"),
-           ends_with("nlog10")) %>%
-    write_tsv(path = paste0(path_out, save_file_as))
-  message(save_file_as, "______DONE")
-}
+1. R script should be modified depending on the group of the results to reflect the cencoring time, patient ethnicity and further specifics about the analysis. These are used to name the file and assigned to `save_file_as` variable in the R script.
 
-```
 
 ### Transfer files to cloud
 
-Send file to cloud location `/projects/DBMT_results_database/results_tbl/`
+This part is executed in the R script with:
 
-```{bash}
-scp /projects/rpci/lsuchest/lsuchest/DBMT_results/DBprep/D_mixed_PFS_1y_EA_NA_CHR10.res ezgikara@199.109.192.6:/projects/DBMT_results_database/results_tbl/
+```{r, eval=FALSE}
+system(glue::glue("scp {path_out}/{save_file_as} ezgikara@199.109.192.37:/data/DBMT_results_database/results_tbl/"))
 ```
+
+But user needs to set up ssh keys to skip the password requirement for file transfer. To get the ssh keys:
+
+Generate private/public ssh key using `ssh-keygen` on CCR. It is not necessary to set up a password (so just click enter twice) after invoking `ssh-keygen`. The public key will be saved in `~/.ssh/id_rsa.pub`. Copy the contents of the public ssh key and paste it in a flat file `~/.ssh/authorized_keys` on the remote server (e.g. in your `.ssh` directory on cloud). If that file does not exist, create `authorized_keys` file (it does not exist by default). 
 
 ## Create Table
 
