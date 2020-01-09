@@ -522,8 +522,8 @@ create table outcome (
 ## Insert Outcome Table
 
 ```{r}
-require(DBI)
-require(odbc)
+library(DBI)
+library(odbc)
 
 con <- DBI::dbConnect(odbc::odbc(),
                       driver = "PostgreSQL Unicode",
@@ -553,7 +553,9 @@ Both scripts do the following:
 
 **Important notes:**
 
-1. For file transfer to work ssh keys should be set up by the user. This is explained in detail below.    
+1. For file transfer to work ssh keys should be set up by the user. This is explained in detail below.     
+
+1. User should pay attention to the transfer location on the cloud! Transfer example below is shown for analyses conducted for 1 year survival, ALL, AML and MDS patiens with European ancestry. While file names are unique and cloud location for these files aren't crucially important, a well organized directory will make data base insertion step easier.
 
 1. R script should be modified depending on the group of the results to reflect the cencoring time, patient ethnicity and further specifics about the analysis. These are used to name the file and assigned to `save_file_as` variable in the R script.
 
@@ -563,8 +565,10 @@ Both scripts do the following:
 This part is executed in the R script with:
 
 ```{r, eval=FALSE}
-system(glue::glue("scp {path_out}/{save_file_as} ezgikara@199.109.192.37:/data/DBMT_results_database/results_tbl/"))
+system(glue::glue("scp {path_out}/{save_file_as} ezgikara@199.109.192.37:/data/DBMT_results_database/results_tbl/mixed_1y_EA"))
 ```
+
+Don't forget to change the path according to population and censoring time of the analyses!
 
 But user needs to set up ssh keys to skip the password requirement for file transfer. To get the ssh keys:
 
@@ -595,7 +599,7 @@ create table results (
 
 ## Insert Table
 
-On cloud via R, add UUIDs and insert results.
+On cloud via R, add UUIDs and insert results. See R script `insert_results_tbl.R`. Example code is also given below:
 
 ```{r}
 library(tidyverse)
@@ -622,36 +626,72 @@ chr_res <- chr_res %>%
   
 colnames(chr_res) <- tolower(gsub("[.]", "_", colnames(chr_res)))
 
-odbc::dbWriteTable(con, "results", chr_res[5,], append=TRUE)
-
-chr_res[5, "snp_id"] == openssl::md5(snp_str)
-
-snp_tbl <- tbl(con, "snp")
-snp_chr10 <- snp_tbl %>% 
-  filter(chr == 10) %>%
-  data.frame()
-  
-snp_chr10 <- mutate(snp_chr10, snp_id = tolower(gsub("-", "", snp_id)))
-
-chr_res %>%
-  mutate(snp_id=as.character(snp_id)) %>% 
-  anti_join(snp_chr10) -> miss_snps
-
-miss_snps %>% head
-
-snpids_chr10 <- snp_chr10 %>% pull(snp_id)
-chr_res %>%
-  filter(!as.character(snp_id) %in% snpids_chr10) -> miss_snps
-setdiff(as.character(chr_res$snp_id), snpids_chr10)
-
-
-head(snp_chr10)
-head(chr_res)
-
-
+odbc::dbWriteTable(con, "results", chr_res, append=TRUE)
 
 ```
 
+# Query Example
+
+```{r}
+library(tidyverse)
+library(DBI)
+library(odbc)
+library(dbplyr)
+options(tibble.width = Inf)
+
+con <- DBI::dbConnect(odbc::odbc(), driver = "PostgreSQL Unicode", 
+                      database = "dbmt_results", UID = "postgres", PWD = "password", 
+                      host = "localhost", port = 5432)
+
+dbListTables(con)
+
+res_tbl <- tbl(con, "results")
+snp_tbl <- tbl(con, "snp")
+out_tbl <- tbl(con, "outcome")
+
+
+### query for a region and one outcome
+
+snp_tbl2 <- snp_tbl %>%
+  filter(chr == 1,
+         pos > 6e7,
+          pos < 60.5e6)
+
+out_tbl2 <- out_tbl %>%
+  filter(genome == "R",
+         outcome == "DRM", 
+         censor_time == "1y",
+         disease_grp == "mixed",
+         ethnicity == "EA")
+
+res2 <- snp_tbl2 %>%
+  inner_join(res_tbl, by="snp_id") %>%
+  semi_join(out_tbl2, by="outcome_id") %>%
+  select(-snp_id, -outcome_id) %>%
+  arrange(-pvalue_m_nlog10) %>%
+  filter(info > 0.8,
+         dbmt_maf > 0.1)
+
+
+head(res2)
+res2_df <- collect(res2) 
+nrow(res2_df)
+
+
+### query for a snp and multiple outcomes
+
+snp_tbl3 <- snp_tbl %>%
+  filter(rsid == "rs10889150")
+
+res3 <- res_tbl %>%
+  semi_join(snp_tbl3) %>%
+  inner_join(out_tbl)
+
+res3_df <- collect(res3)
+res3_df %>%
+  select(-snp_id, -outcome_id) %>%
+  mutate_at(vars(coef_c1:coef_m), exp)
+```
 
 
 
