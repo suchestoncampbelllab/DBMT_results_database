@@ -704,6 +704,12 @@ res3_df %>%
 
 ## Postgresql Configuration while Populating Large Amounts of Data
 
+See log files:
+
+```
+cd /var/log/postgresql/
+```
+
 https://www.postgresql.org/docs/10/populate.html#POPULATE-MAX-WAL-SIZE
 
 While connected psql run to see the path to config file.
@@ -736,7 +742,15 @@ wal_level = minimal
 max_wal_size = 4GB
 ```
 
-Also see https://www.postgresql.org/docs/10/app-pg-ctl.html
+Also see for reloding the database:
+https://www.postgresql.org/docs/10/app-pg-ctl.html    
+https://www.heatware.net/databases/postgresql-reload-config-without-restarting/
+
+
+Add postgres bin to path:
+https://askubuntu.com/questions/385416/pg-ctl-command-not-found-what-package-has-this-command    
+
+
 
 
 
