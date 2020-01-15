@@ -5,7 +5,8 @@ library(dbplyr)
 options(tibble.width = Inf)
 
 con <- DBI::dbConnect(odbc::odbc(), driver = "PostgreSQL Unicode", 
-                      database = "dbmt_results", UID = "postgres", PWD = "password", 
+                      database = "dbmt_results", 
+                      UID = "postgres", PWD = "password", 
                       host = "localhost", port = 5432)
 
 dbListTables(con)
@@ -35,18 +36,18 @@ res2 <- snp_tbl2 %>%
   select(-snp_id, -outcome_id) %>%
   arrange(-pvalue_m_nlog10) %>%
   filter(info > 0.8,
-         dbmt_maf > 0.1)
+         dbmt_maf > 0.1) 
 
 
-head(res2)
 res2_df <- collect(res2) 
 nrow(res2_df)
 
 
 ### query for a snp and multiple outcomes
 
+snps <- c("rs10889150", "rs568100880")
 snp_tbl3 <- snp_tbl %>%
-  filter(rsid == "rs10889150")
+  filter(rsid %in% !!snps)
 
 res3 <- res_tbl %>%
   semi_join(snp_tbl3) %>%
@@ -54,6 +55,16 @@ res3 <- res_tbl %>%
 
 res3_df <- collect(res3)
 res3_df %>%
-  select(-snp_id, -outcome_id) %>%
-  mutate_at(vars(coef_c1:coef_m), exp)
+  select(-snp_id, -outcome_id)
 
+### query for full genome one outcome and just pvalues
+
+snp_tbl %>%
+  inner_join(res_tbl) %>%
+  semi_join(out_tbl2) %>%
+  select(rsid:dbmt_maf, contains("pvalue")) %>%
+  mutate(pvalue_m = 10^(-pvalue_m_nlog10)) %>%
+  arrange(-pvalue_m_nlog10) -> res4
+head(res4)
+
+res4_df <- collect(res4)
