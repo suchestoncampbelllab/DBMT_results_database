@@ -3,6 +3,7 @@ library(vroom)
 library(DBI)
 library(odbc)
 library(batch)
+batch::parseCommandArgs(evaluate=TRUE)
 
 options(tibble.width = Inf,
         readr.show_progress = FALSE)
@@ -27,7 +28,7 @@ cat("Analysis started on",
   
 for (res_file in res_files) {
   chr_res <- vroom(
-    paste0("results_tbl/{results}/", res_file),
+    glue::glue("results_tbl/{results}/", res_file),
     col_types = cols(
       snp_str = col_character(),
       ALT_METAL = col_character(),

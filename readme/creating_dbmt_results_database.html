@@ -1505,7 +1505,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Creating DBMT Results Database</h1>
 <h4 class="author">Ezgi Karaesmen</h4>
-<h4 class="date">Last Updated: January 08, 2020</h4>
+<h4 class="date">Last Updated: January 12, 2020</h4>
 
 </div>
 
@@ -2006,6 +2006,9 @@ chr_res &lt;- chr_res %&gt;%
 colnames(chr_res) &lt;- tolower(gsub(&quot;[.]&quot;, &quot;_&quot;, colnames(chr_res)))
 
 odbc::dbWriteTable(con, &quot;results&quot;, chr_res, append=TRUE)</code></pre>
+<p>R script to insert the results can be executed on command line simply with:</p>
+<pre><code>R --file=/data/DBMT_results_database/code/insert_result_tbl.R -q --args results AMLMDS_1y_EA</code></pre>
+<p>Argument <code>results</code> is simply the sub-directory in <code>/data/DBMT_results_database/results_tbl/</code> that the results files will be inserted from. This also represents the group of results inserted to the database at the same time and will also generate a log file named after the same argument.</p>
 </div>
 </div>
 <div id="query-example" class="section level1">
