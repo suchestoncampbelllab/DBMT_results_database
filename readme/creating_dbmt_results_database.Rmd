@@ -749,8 +749,22 @@ https://www.heatware.net/databases/postgresql-reload-config-without-restarting/
 
 Add postgres bin to path:
 https://askubuntu.com/questions/385416/pg-ctl-command-not-found-what-package-has-this-command    
+## SOLUTION
 
+In sql 
+```
+ALTER SYSTEM SET max_wal_senders TO 0;
+ALTER SYSTEM SET wal_level TO 'minimal';
+ALTER SYSTEM SET max_wal_size TO '4GB';
+```
 
+Reset database to get settings to take effect.
+
+On terminal
+```
+sudo su postgres
+/usr/lib/postgresql/10/bin/pg_ctl restart -D /var/lib/postgresql/10/main
+```
 
 
 
