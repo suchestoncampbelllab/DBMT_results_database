@@ -1505,7 +1505,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Creating DBMT Results Database</h1>
 <h4 class="author">Ezgi Karaesmen</h4>
-<h4 class="date">Last Updated: January 12, 2020</h4>
+<h4 class="date">Last Updated: January 21, 2020</h4>
 
 </div>
 
@@ -2007,7 +2007,7 @@ colnames(chr_res) &lt;- tolower(gsub(&quot;[.]&quot;, &quot;_&quot;, colnames(ch
 
 odbc::dbWriteTable(con, &quot;results&quot;, chr_res, append=TRUE)</code></pre>
 <p>R script to insert the results can be executed on command line simply with:</p>
-<pre><code>R --file=/data/DBMT_results_database/code/insert_result_tbl.R -q --args results AMLMDS_1y_EA</code></pre>
+<pre><code>R --file=/data/DBMT_results_database/code/insert_result_tbl.R -q --args results AMLMDS_1y_EA exclude  /data/DBMT_results_database/results_tbl/exclude.list</code></pre>
 <p>Argument <code>results</code> is simply the sub-directory in <code>/data/DBMT_results_database/results_tbl/</code> that the results files will be inserted from. This also represents the group of results inserted to the database at the same time and will also generate a log file named after the same argument.</p>
 </div>
 </div>
@@ -2071,6 +2071,41 @@ res3_df &lt;- collect(res3)
 res3_df %&gt;%
   select(-snp_id, -outcome_id) %&gt;%
   mutate_at(vars(coef_c1:coef_m), exp)</code></pre>
+<div id="postgresql-configuration-while-populating-large-amounts-of-data" class="section level2">
+<h2>Postgresql Configuration while Populating Large Amounts of Data</h2>
+<p>See log files:</p>
+<pre><code>cd /var/log/postgresql/</code></pre>
+<p><a href="https://www.postgresql.org/docs/10/populate.html#POPULATE-MAX-WAL-SIZE" class="uri">https://www.postgresql.org/docs/10/populate.html#POPULATE-MAX-WAL-SIZE</a></p>
+<p>While connected psql run to see the path to config file.</p>
+<pre><code>show config_file;</code></pre>
+<p>Configuration file is located in</p>
+<pre><code>/etc/postgresql/10/main/postgresql.conf</code></pre>
+<p>Settings before the change:</p>
+<pre><code>max_wal_senders = 10
+wal_level = replica
+max_wal_size = 1GB
+</code></pre>
+<p>Settings after the change to ease populating large amounts of data</p>
+<pre><code>max_wal_senders = 0
+wal_level = minimal
+max_wal_size = 4GB</code></pre>
+<p>Also see for reloding the database: <a href="https://www.postgresql.org/docs/10/app-pg-ctl.html" class="uri">https://www.postgresql.org/docs/10/app-pg-ctl.html</a><br />
+<a href="https://www.heatware.net/databases/postgresql-reload-config-without-restarting/" class="uri">https://www.heatware.net/databases/postgresql-reload-config-without-restarting/</a></p>
+<p>Add postgres bin to path: <a href="https://askubuntu.com/questions/385416/pg-ctl-command-not-found-what-package-has-this-command" class="uri">https://askubuntu.com/questions/385416/pg-ctl-command-not-found-what-package-has-this-command</a><br />
+## SOLUTION</p>
+<p>In sql</p>
+<pre><code>ALTER SYSTEM SET max_wal_senders TO 0;
+ALTER SYSTEM SET wal_level TO 'minimal';
+ALTER SYSTEM SET max_wal_size TO '4GB';</code></pre>
+<p>Reset database to get settings to take effect.</p>
+<p>On terminal</p>
+<pre><code>sudo su postgres
+/usr/lib/postgresql/10/bin/pg_ctl restart -D /var/lib/postgresql/10/main</code></pre>
+</div>
+<div id="relocate-the-database" class="section level2">
+<h2>Relocate the database</h2>
+<p>See the <a href="https://www.digitalocean.com/community/tutorials/how-to-move-a-postgresql-data-directory-to-a-new-location-on-ubuntu-16-04">post</a></p>
+</div>
 </div>
 <div id="eqtl-table" class="section level1">
 <h1>eQTL Table</h1>

@@ -702,7 +702,20 @@ res3_df %>%
   mutate_at(vars(coef_c1:coef_m), exp)
 ```
 
+
+### Submitting a background job to insert records
+
+```
+R CMD BATCH '--args results="AML_1y_EA"' /data/DBMT_results_database/code/insert_result_tbl.R AML_1y_EA.out &
+```
+
+# eQTL Table
+
+
+# Moving Database to a new directory
+
 ## Postgresql Configuration while Populating Large Amounts of Data
+
 
 See log files:
 
@@ -723,7 +736,13 @@ Configuration file is located in
 ```
 /etc/postgresql/10/main/postgresql.conf
 ```
+To see settings:
 
+```{sql}
+SELECT name, source, sourcefile, sourceline, pending_restart
+FROM pg_settings
+WHERE name IN ('data_directory','wal_level', 'max_wal_size', 'max_wal_senders');
+```
 
 Settings before the change:
 
@@ -763,13 +782,68 @@ Reset database to get settings to take effect.
 On terminal
 ```
 sudo su postgres
-/usr/lib/postgresql/10/bin/pg_ctl restart -D /var/lib/postgresql/10/main
+/usr/lib/postgresql/10/bin/pg_ctl restart -D /data/postgresql/10/main
+```
+
+## Relocate the database
+
+See the [post](https://www.digitalocean.com/community/tutorials/how-to-move-a-postgresql-data-directory-to-a-new-location-on-ubuntu-16-04) I followed to move the database.
+
+Initial data directory
+
+```
+postgres=# SHOW data_directory;
+       data_directory
+-----------------------------
+ /var/lib/postgresql/10/main
+(1 row)
+
+```
+
+On terminal
+
+```{bash, eval=FALSE}
+sudo systemctl stop postgresql
+sudo systemctl status postgresql
+```
+
+Copy database data to `/data/postgresql` and change original directory name to avoid confusion.
+
+```{bash, eval=FALSE}
+sudo rsync -av /var/lib/postgresql /data
+sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak
+```
+
+Now, go back to DB configuration.
+
+Change data directory in config file.
+
+```
+sudo vim /etc/postgresql/10/main/postgresql.conf
+```
+Change `data_directory = '/var/lib/postgresql/10/main'` to `data_directory = q'/data/postgresql/10/main'`
+
+Restart Postgresql
+
+```
+sudo systemctl start postgresql
+sudo systemctl status postgresql
+```
+Delete old directory
+
+```
+sudo rm -Rf /var/lib/postgresql/10
 ```
 
 
+## if ever needed kill jobs with
 
-# eQTL Table
+Kill job by PID
 
+```
+ps aux | grep postgres
+kill -9 22507
+```
 
 
 

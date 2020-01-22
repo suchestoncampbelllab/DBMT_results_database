@@ -2,6 +2,7 @@ library(tidyverse)
 library(DBI)
 library(odbc)
 library(dbplyr)
+library(batch)
 options(tibble.width = Inf)
 
 con <- DBI::dbConnect(odbc::odbc(), driver = "PostgreSQL Unicode", 
@@ -19,15 +20,15 @@ out_tbl <- tbl(con, "outcome")
 ### query for a region and one outcome
 
 snp_tbl2 <- snp_tbl %>%
-  filter(chr == 1,
+  filter(chr == 11,
          pos > 6e7,
-          pos < 60.5e6)
+          pos < 6e7+10000)
 
 out_tbl2 <- out_tbl %>%
-  filter(genome == "R",
-         outcome == "DRM", 
+  filter(genome == "MM",
+         outcome == "PFS", 
          censor_time == "1y",
-         disease_grp == "mixed",
+         disease_grp == "AMLMDS",
          ethnicity == "EA")
 
 res2 <- snp_tbl2 %>%
@@ -36,12 +37,19 @@ res2 <- snp_tbl2 %>%
   select(-snp_id, -outcome_id) %>%
   arrange(-pvalue_m_nlog10) %>%
   filter(info > 0.8,
-         dbmt_maf > 0.1) 
+         dbmt_maf > 0.1)
 
-
-res2_df <- collect(res2) 
-nrow(res2_df)
-
+res2_df <- collect(res2)
+res2_df <- res2_df %>%
+  mutate_at(vars(starts_with("coef_")), list(hr = exp)) %>%
+  mutate_at(vars(starts_with("pvalue_")), list(OG = ~10^(.) )) %>%
+  mutate(ci_ub_c1 = exp(coef_c1+1.96*se_coef_c1),
+         ci_ub_c2 = exp(coef_c2+1.96*se_coef_c2),
+         ci_ub_m = exp(coef_m+1.96*se_coef_m),
+         
+         ci_lb_c1 = exp(coef_c1-1.96*se_coef_c1),
+         ci_lb_c2 = exp(coef_c2-1.96*se_coef_c2),
+         ci_lb_m = exp(coef_m-1.96*se_coef_m)) 
 
 ### query for a snp and multiple outcomes
 
