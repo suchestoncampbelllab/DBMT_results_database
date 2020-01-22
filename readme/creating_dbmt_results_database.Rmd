@@ -703,7 +703,7 @@ res3_df %>%
 ```
 
 
-### Submitting a background job to insert records
+## Submitting a background job to insert records
 
 ```
 R CMD BATCH '--args results="AML_1y_EA"' /data/DBMT_results_database/code/insert_result_tbl.R AML_1y_EA.out &

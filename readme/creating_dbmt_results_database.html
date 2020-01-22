@@ -1505,7 +1505,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Creating DBMT Results Database</h1>
 <h4 class="author">Ezgi Karaesmen</h4>
-<h4 class="date">Last Updated: January 21, 2020</h4>
+<h4 class="date">Last Updated: January 22, 2020</h4>
 
 </div>
 
@@ -2071,6 +2071,16 @@ res3_df &lt;- collect(res3)
 res3_df %&gt;%
   select(-snp_id, -outcome_id) %&gt;%
   mutate_at(vars(coef_c1:coef_m), exp)</code></pre>
+<div id="submitting-a-background-job-to-insert-records" class="section level2">
+<h2>Submitting a background job to insert records</h2>
+<pre><code>R CMD BATCH '--args results=&quot;AML_1y_EA&quot;' /data/DBMT_results_database/code/insert_result_tbl.R AML_1y_EA.out &amp;</code></pre>
+</div>
+</div>
+<div id="eqtl-table" class="section level1">
+<h1>eQTL Table</h1>
+</div>
+<div id="moving-database-to-a-new-directory" class="section level1">
+<h1>Moving Database to a new directory</h1>
 <div id="postgresql-configuration-while-populating-large-amounts-of-data" class="section level2">
 <h2>Postgresql Configuration while Populating Large Amounts of Data</h2>
 <p>See log files:</p>
@@ -2080,6 +2090,10 @@ res3_df %&gt;%
 <pre><code>show config_file;</code></pre>
 <p>Configuration file is located in</p>
 <pre><code>/etc/postgresql/10/main/postgresql.conf</code></pre>
+<p>To see settings:</p>
+<pre class="sql"><code>SELECT name, source, sourcefile, sourceline, pending_restart
+FROM pg_settings
+WHERE name IN ('data_directory','wal_level', 'max_wal_size', 'max_wal_senders');</code></pre>
 <p>Settings before the change:</p>
 <pre><code>max_wal_senders = 10
 wal_level = replica
@@ -2100,15 +2114,40 @@ ALTER SYSTEM SET max_wal_size TO '4GB';</code></pre>
 <p>Reset database to get settings to take effect.</p>
 <p>On terminal</p>
 <pre><code>sudo su postgres
-/usr/lib/postgresql/10/bin/pg_ctl restart -D /var/lib/postgresql/10/main</code></pre>
+/usr/lib/postgresql/10/bin/pg_ctl restart -D /data/postgresql/10/main</code></pre>
 </div>
 <div id="relocate-the-database" class="section level2">
 <h2>Relocate the database</h2>
-<p>See the <a href="https://www.digitalocean.com/community/tutorials/how-to-move-a-postgresql-data-directory-to-a-new-location-on-ubuntu-16-04">post</a></p>
+<p>See the <a href="https://www.digitalocean.com/community/tutorials/how-to-move-a-postgresql-data-directory-to-a-new-location-on-ubuntu-16-04">post</a> I followed to move the database.</p>
+<p>Initial data directory</p>
+<pre><code>postgres=# SHOW data_directory;
+       data_directory
+-----------------------------
+ /var/lib/postgresql/10/main
+(1 row)
+</code></pre>
+<p>On terminal</p>
+<pre class="bash"><code>sudo systemctl stop postgresql
+sudo systemctl status postgresql</code></pre>
+<p>Copy database data to <code>/data/postgresql</code> and change original directory name to avoid confusion.</p>
+<pre class="bash"><code>sudo rsync -av /var/lib/postgresql /data
+sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak</code></pre>
+<p>Now, go back to DB configuration.</p>
+<p>Change data directory in config file.</p>
+<pre><code>sudo vim /etc/postgresql/10/main/postgresql.conf</code></pre>
+<p>Change <code>data_directory = '/var/lib/postgresql/10/main'</code> to <code>data_directory = q'/data/postgresql/10/main'</code></p>
+<p>Restart Postgresql</p>
+<pre><code>sudo systemctl start postgresql
+sudo systemctl status postgresql</code></pre>
+<p>Delete old directory</p>
+<pre><code>sudo rm -Rf /var/lib/postgresql/10</code></pre>
 </div>
+<div id="if-ever-needed-kill-jobs-with" class="section level2">
+<h2>if ever needed kill jobs with</h2>
+<p>Kill job by PID</p>
+<pre><code>ps aux | grep postgres
+kill -9 22507</code></pre>
 </div>
-<div id="eqtl-table" class="section level1">
-<h1>eQTL Table</h1>
 </div>
 
 
